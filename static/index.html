@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -22,7 +23,7 @@
 
         .container {
             display: grid;
-            grid-template-areas: 
+            grid-template-areas:
                 "header header"
                 "sidebar main"
                 "sidebar main";
@@ -100,8 +101,13 @@
             border-radius: 50%;
         }
 
-        .status-dot.connected { background: #00ff88; }
-        .status-dot.disconnected { background: #ff4444; }
+        .status-dot.connected {
+            background: #00ff88;
+        }
+
+        .status-dot.disconnected {
+            background: #ff4444;
+        }
 
         .sidebar {
             grid-area: sidebar;
@@ -203,8 +209,13 @@
             margin-left: 8px;
         }
 
-        .price-change.up { color: #00ff88; }
-        .price-change.down { color: #ff4444; }
+        .price-change.up {
+            color: #00ff88;
+        }
+
+        .price-change.down {
+            color: #ff4444;
+        }
 
         .chart-container {
             flex: 1;
@@ -268,8 +279,15 @@
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
         }
 
 
@@ -287,9 +305,20 @@
         }
 
         @keyframes dots {
-            0%, 20% { content: "."; }
-            40% { content: ".."; }
-            60%, 100% { content: "..."; }
+
+            0%,
+            20% {
+                content: ".";
+            }
+
+            40% {
+                content: "..";
+            }
+
+            60%,
+            100% {
+                content: "...";
+            }
         }
 
         .uplot {
@@ -368,8 +397,12 @@
             background: #5a5aff;
         }
 
-        .legend-color.deribit {
+        .legend-color.okx {
             background: #ff6b6b;
+        }
+
+        .legend-color.bitget {
+            background: #9b59b6;
         }
 
         .legend-label {
@@ -406,6 +439,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="header">
@@ -484,9 +518,14 @@
                                 <span class="legend-value" id="krakenValue">--</span>
                             </div>
                             <div class="legend-item">
-                                <span class="legend-color deribit"></span>
-                                <span class="legend-label">Deribit:</span>
-                                <span class="legend-value" id="deribitValue">--</span>
+                                <span class="legend-color okx"></span>
+                                <span class="legend-label">OKX:</span>
+                                <span class="legend-value" id="okxValue">--</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color bitget"></span>
+                                <span class="legend-label">Bitget:</span>
+                                <span class="legend-value" id="bitgetValue">--</span>
                             </div>
                         </div>
                     </div>
@@ -522,9 +561,14 @@
                                 <span class="legend-value" id="krakenCVDValue">--</span>
                             </div>
                             <div class="legend-item">
-                                <span class="legend-color deribit"></span>
-                                <span class="legend-label">Deribit:</span>
-                                <span class="legend-value" id="deribitCVDValue">--</span>
+                                <span class="legend-color okx"></span>
+                                <span class="legend-label">OKX:</span>
+                                <span class="legend-value" id="okxCVDValue">--</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color bitget"></span>
+                                <span class="legend-label">Bitget:</span>
+                                <span class="legend-value" id="bitgetCVDValue">--</span>
                             </div>
                         </div>
                     </div>
@@ -537,4 +581,5 @@
     <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.iife.min.js"></script>
     <script src="app.js"></script>
 </body>
+
 </html>

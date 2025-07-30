@@ -9,8 +9,8 @@ class FuturesArbitrageScanner {
         
         this.chart = null;
         this.cvdChart = null;
-        this.chartData = [[], [], [], [], [], []]; // timestamps, binance, bybit, hyperliquid, kraken, deribit
-        this.cvdChartData = [[], [], [], [], [], []]; // timestamps, binance_cvd, bybit_cvd, hyperliquid_cvd, kraken_cvd, deribit_cvd
+        this.chartData = [[], [], [], [], [], []]; // timestamps, binance, bybit, hyperliquid, kraken, okx, bitget
+        this.cvdChartData = [[], [], [], [], [], []]; // timestamps, binance_cvd, bybit_cvd, hyperliquid_cvd, kraken_cvd, okx_cvd, bitget_cvd
         this.cvdHistory = new Map();
         this.ws = null;
         this.reconnectAttempts = 0;
@@ -65,6 +65,7 @@ class FuturesArbitrageScanner {
         const now = Date.now() / 1000;
         this.chartData = [
             [now - 60, now],
+            [null, null],
             [null, null],
             [null, null],
             [null, null],
@@ -170,8 +171,15 @@ class FuturesArbitrageScanner {
                     value: (_, v) => v == null ? '' : '$' + v.toFixed(2),
                 },
                 {
-                    label: "Deribit Futures",
+                    label: "OKX Futures",
                     stroke: "#ff6b6b",
+                    width: 2,
+                    spanGaps: false,
+                    value: (_, v) => v == null ? '' : '$' + v.toFixed(2),
+                },
+                {
+                    label: "Bitget Futures",
+                    stroke: "#9b59b6",
                     width: 2,
                     spanGaps: false,
                     value: (_, v) => v == null ? '' : '$' + v.toFixed(2),
@@ -217,6 +225,7 @@ class FuturesArbitrageScanner {
         const now = Date.now() / 1000;
         this.cvdChartData = [
             [now - 60, now],
+            [null, null],
             [null, null],
             [null, null],
             [null, null],
@@ -322,8 +331,15 @@ class FuturesArbitrageScanner {
                     value: (_, v) => v == null ? '' : v.toFixed(0),
                 },
                 {
-                    label: "Deribit CVD",
+                    label: "OKX CVD",
                     stroke: "#ff6b6b",
+                    width: 2,
+                    spanGaps: false,
+                    value: (_, v) => v == null ? '' : v.toFixed(0),
+                },
+                {
+                    label: "Bitget CVD",
+                    stroke: "#9b59b6",
                     width: 2,
                     spanGaps: false,
                     value: (_, v) => v == null ? '' : v.toFixed(0),
@@ -544,7 +560,8 @@ class FuturesArbitrageScanner {
             'bybit_futures': '#f7931a',
             'hyperliquid_futures': '#97FCE4',
             'kraken_futures': '#5a5aff',
-            'deribit_futures': '#ff6b6b'
+            'okx_futures': '#ff6b6b',
+            'bitget_futures': '#9b59b6'
         };
 
         let html = '';
@@ -595,9 +612,10 @@ class FuturesArbitrageScanner {
         const bybitHistory = this.priceHistory.get('bybit_futures') || [];
         const hyperliquidHistory = this.priceHistory.get('hyperliquid_futures') || [];
         const krakenHistory = this.priceHistory.get('kraken_futures') || [];
-        const deribitHistory = this.priceHistory.get('deribit_futures') || [];
+        const okxHistory = this.priceHistory.get('okx_futures') || [];
+        const bitgetHistory = this.priceHistory.get('bitget_futures') || [];
         
-        if (binanceHistory.length === 0 && bybitHistory.length === 0 && hyperliquidHistory.length === 0 && krakenHistory.length === 0 && deribitHistory.length === 0) return;
+        if (binanceHistory.length === 0 && bybitHistory.length === 0 && hyperliquidHistory.length === 0 && krakenHistory.length === 0 && okxHistory.length === 0 && bitgetHistory.length === 0) return;
 
         // Create combined timestamp array
         const allTimestamps = new Set();
@@ -605,7 +623,8 @@ class FuturesArbitrageScanner {
         bybitHistory.forEach(point => allTimestamps.add(point[0]));
         hyperliquidHistory.forEach(point => allTimestamps.add(point[0]));
         krakenHistory.forEach(point => allTimestamps.add(point[0]));
-        deribitHistory.forEach(point => allTimestamps.add(point[0]));
+        okxHistory.forEach(point => allTimestamps.add(point[0]));
+        bitgetHistory.forEach(point => allTimestamps.add(point[0]));
         
         const timestamps = Array.from(allTimestamps).sort((a, b) => a - b);
         
@@ -614,26 +633,30 @@ class FuturesArbitrageScanner {
         const bybitPrices = [];
         const hyperliquidPrices = [];
         const krakenPrices = [];
-        const deribitPrices = [];
+        const okxPrices = [];
+        const bitgetPrices = [];
         
         const binanceMap = new Map(binanceHistory);
         const bybitMap = new Map(bybitHistory);
         const hyperliquidMap = new Map(hyperliquidHistory);
         const krakenMap = new Map(krakenHistory);
-        const deribitMap = new Map(deribitHistory);
+        const okxMap = new Map(okxHistory);
+        const bitgetMap = new Map(bitgetHistory);
         
         let lastBinancePrice = null;
         let lastBybitPrice = null;
         let lastHyperliquidPrice = null;
         let lastKrakenPrice = null;
-        let lastDeribitPrice = null;
+        let lastOkxPrice = null;
+        let lastBitgetPrice = null;
         
         timestamps.forEach(timestamp => {
             const binancePrice = binanceMap.get(timestamp);
             const bybitPrice = bybitMap.get(timestamp);
             const hyperliquidPrice = hyperliquidMap.get(timestamp);
             const krakenPrice = krakenMap.get(timestamp);
-            const deribitPrice = deribitMap.get(timestamp);
+            const okxPrice = okxMap.get(timestamp);
+            const bitgetPrice = bitgetMap.get(timestamp);
             
             if (binancePrice !== undefined) {
                 lastBinancePrice = binancePrice;
@@ -647,18 +670,22 @@ class FuturesArbitrageScanner {
             if (krakenPrice !== undefined) {
                 lastKrakenPrice = krakenPrice;
             }
-            if (deribitPrice !== undefined) {
-                lastDeribitPrice = deribitPrice;
+            if (okxPrice !== undefined) {
+                lastOkxPrice = okxPrice;
+            }
+            if (bitgetPrice !== undefined) {
+                lastBitgetPrice = bitgetPrice;
             }
             
             binancePrices.push(lastBinancePrice);
             bybitPrices.push(lastBybitPrice);
             hyperliquidPrices.push(lastHyperliquidPrice);
             krakenPrices.push(lastKrakenPrice);
-            deribitPrices.push(lastDeribitPrice);
+            okxPrices.push(lastOkxPrice);
+            bitgetPrices.push(lastBitgetPrice);
         });
 
-        this.chartData = [timestamps, binancePrices, bybitPrices, hyperliquidPrices, krakenPrices, deribitPrices];
+        this.chartData = [timestamps, binancePrices, bybitPrices, hyperliquidPrices, krakenPrices, okxPrices, bitgetPrices];
         this.chart.setData(this.chartData);
         this.lastChartUpdate = performance.now();
     }
@@ -686,9 +713,10 @@ class FuturesArbitrageScanner {
         const bybitCVDHistory = this.cvdHistory.get('bybit_futures') || [];
         const hyperliquidCVDHistory = this.cvdHistory.get('hyperliquid_futures') || [];
         const krakenCVDHistory = this.cvdHistory.get('kraken_futures') || [];
-        const deribitCVDHistory = this.cvdHistory.get('deribit_futures') || [];
+        const okxCVDHistory = this.cvdHistory.get('okx_futures') || [];
+        const bitgetCVDHistory = this.cvdHistory.get('bitget_futures') || [];
         
-        if (binanceCVDHistory.length === 0 && bybitCVDHistory.length === 0 && hyperliquidCVDHistory.length === 0 && krakenCVDHistory.length === 0 && deribitCVDHistory.length === 0) return;
+        if (binanceCVDHistory.length === 0 && bybitCVDHistory.length === 0 && hyperliquidCVDHistory.length === 0 && krakenCVDHistory.length === 0 && okxCVDHistory.length === 0 && bitgetCVDHistory.length === 0) return;
 
         // Create combined timestamp array
         const allTimestamps = new Set();
@@ -696,7 +724,8 @@ class FuturesArbitrageScanner {
         bybitCVDHistory.forEach(point => allTimestamps.add(point[0]));
         hyperliquidCVDHistory.forEach(point => allTimestamps.add(point[0]));
         krakenCVDHistory.forEach(point => allTimestamps.add(point[0]));
-        deribitCVDHistory.forEach(point => allTimestamps.add(point[0]));
+        okxCVDHistory.forEach(point => allTimestamps.add(point[0]));
+        bitgetCVDHistory.forEach(point => allTimestamps.add(point[0]));
         
         const timestamps = Array.from(allTimestamps).sort((a, b) => a - b);
         
@@ -705,26 +734,30 @@ class FuturesArbitrageScanner {
         const bybitCVDs = [];
         const hyperliquidCVDs = [];
         const krakenCVDs = [];
-        const deribitCVDs = [];
+        const okxCVDs = [];
+        const bitgetCVDs = [];
         
         const binanceMap = new Map(binanceCVDHistory);
         const bybitMap = new Map(bybitCVDHistory);
         const hyperliquidMap = new Map(hyperliquidCVDHistory);
         const krakenMap = new Map(krakenCVDHistory);
-        const deribitMap = new Map(deribitCVDHistory);
+        const okxMap = new Map(okxCVDHistory);
+        const bitgetMap = new Map(bitgetCVDHistory);
         
         let lastBinanceCVD = null;
         let lastBybitCVD = null;
         let lastHyperliquidCVD = null;
         let lastKrakenCVD = null;
-        let lastDeribitCVD = null;
+        let lastOkxCVD = null;
+        let lastBitgetCVD = null;
         
         timestamps.forEach(timestamp => {
             const binanceCVD = binanceMap.get(timestamp);
             const bybitCVD = bybitMap.get(timestamp);
             const hyperliquidCVD = hyperliquidMap.get(timestamp);
             const krakenCVD = krakenMap.get(timestamp);
-            const deribitCVD = deribitMap.get(timestamp);
+            const okxCVD = okxMap.get(timestamp);
+            const bitgetCVD = bitgetMap.get(timestamp);
             
             if (binanceCVD !== undefined) {
                 lastBinanceCVD = binanceCVD;
@@ -738,18 +771,22 @@ class FuturesArbitrageScanner {
             if (krakenCVD !== undefined) {
                 lastKrakenCVD = krakenCVD;
             }
-            if (deribitCVD !== undefined) {
-                lastDeribitCVD = deribitCVD;
+            if (okxCVD !== undefined) {
+                lastOkxCVD = okxCVD;
+            }
+            if (bitgetCVD !== undefined) {
+                lastBitgetCVD = bitgetCVD;
             }
             
             binanceCVDs.push(lastBinanceCVD);
             bybitCVDs.push(lastBybitCVD);
             hyperliquidCVDs.push(lastHyperliquidCVD);
             krakenCVDs.push(lastKrakenCVD);
-            deribitCVDs.push(lastDeribitCVD);
+            okxCVDs.push(lastOkxCVD);
+            bitgetCVDs.push(lastBitgetCVD);
         });
 
-        this.cvdChartData = [timestamps, binanceCVDs, bybitCVDs, hyperliquidCVDs, krakenCVDs, deribitCVDs];
+        this.cvdChartData = [timestamps, binanceCVDs, bybitCVDs, hyperliquidCVDs, krakenCVDs, okxCVDs, bitgetCVDs];
         this.cvdChart.setData(this.cvdChartData);
     }
 
@@ -799,8 +836,8 @@ class FuturesArbitrageScanner {
         this.cvdHistory.clear();
         this.arbitrageAlerts = [];
         
-        this.chartData = [[], [], [], [], [], []];
-        this.cvdChartData = [[], [], [], [], [], []];
+        this.chartData = [[], [], [], [], [], [], []];
+        this.cvdChartData = [[], [], [], [], [], [], []];
         if (this.chart) {
             this.chart.setData(this.chartData);
         }
@@ -847,7 +884,8 @@ class FuturesArbitrageScanner {
         const bybitValue = document.getElementById('bybitValue');
         const hyperliquidValue = document.getElementById('hyperliquidValue');
         const krakenValue = document.getElementById('krakenValue');
-        const deribitValue = document.getElementById('deribitValue');
+        const okxValue = document.getElementById('okxValue');
+        const bitgetValue = document.getElementById('bitgetValue');
 
         if (u.cursor.idx === null) {
             legend.classList.remove('visible');
@@ -863,7 +901,8 @@ class FuturesArbitrageScanner {
         const bybitPrice = u.data[2][idx];
         const hyperliquidPrice = u.data[3][idx];
         const krakenPrice = u.data[4][idx];
-        const deribitPrice = u.data[5][idx];
+        const okxPrice = u.data[5][idx];
+        const bitgetPrice = u.data[6][idx];
 
         // Format timestamp with milliseconds
         if (timestamp) {
@@ -880,7 +919,8 @@ class FuturesArbitrageScanner {
         bybitValue.textContent = bybitPrice ? `$${bybitPrice.toFixed(2)}` : '--';
         hyperliquidValue.textContent = hyperliquidPrice ? `$${hyperliquidPrice.toFixed(2)}` : '--';
         krakenValue.textContent = krakenPrice ? `$${krakenPrice.toFixed(2)}` : '--';
-        deribitValue.textContent = deribitPrice ? `$${deribitPrice.toFixed(2)}` : '--';
+        if (okxValue) okxValue.textContent = okxPrice ? `$${okxPrice.toFixed(2)}` : '--';
+        if (bitgetValue) bitgetValue.textContent = bitgetPrice ? `$${bitgetPrice.toFixed(2)}` : '--';
     }
 
     updateCVDCustomLegend(u) {
@@ -890,7 +930,8 @@ class FuturesArbitrageScanner {
         const bybitCVDValue = document.getElementById('bybitCVDValue');
         const hyperliquidCVDValue = document.getElementById('hyperliquidCVDValue');
         const krakenCVDValue = document.getElementById('krakenCVDValue');
-        const deribitCVDValue = document.getElementById('deribitCVDValue');
+        const okxCVDValue = document.getElementById('okxCVDValue');
+        const bitgetCVDValue = document.getElementById('bitgetCVDValue');
 
         if (u.cursor.idx === null) {
             legend.classList.remove('visible');
@@ -906,7 +947,8 @@ class FuturesArbitrageScanner {
         const bybitCVD = u.data[2][idx];
         const hyperliquidCVD = u.data[3][idx];
         const krakenCVD = u.data[4][idx];
-        const deribitCVD = u.data[5][idx];
+        const okxCVD = u.data[5][idx];
+        const bitgetCVD = u.data[6][idx];
 
         // Format timestamp with milliseconds
         if (timestamp) {
@@ -923,7 +965,8 @@ class FuturesArbitrageScanner {
         bybitCVDValue.textContent = bybitCVD ? bybitCVD.toFixed(0) : '--';
         hyperliquidCVDValue.textContent = hyperliquidCVD ? hyperliquidCVD.toFixed(0) : '--';
         krakenCVDValue.textContent = krakenCVD ? krakenCVD.toFixed(0) : '--';
-        deribitCVDValue.textContent = deribitCVD ? deribitCVD.toFixed(0) : '--';
+        if (okxCVDValue) okxCVDValue.textContent = okxCVD ? okxCVD.toFixed(0) : '--';
+        if (bitgetCVDValue) bitgetCVDValue.textContent = bitgetCVD ? bitgetCVD.toFixed(0) : '--';
     }
 
 

@@ -1,6 +1,7 @@
 package exchanges
 
 import (
+	"encoding/json"
 	"log"
 	"strconv"
 	"time"
@@ -9,7 +10,19 @@ import (
 )
 
 type KrakenFuturesTrade struct {
-	Feed   string      `json:"feed"`
+	Feed      string  `json:"feed"`
+	ProductID string  `json:"product_id"`
+	Price     float64 `json:"price"`
+	Quantity  float64 `json:"qty"`
+	Side      string  `json:"side"`
+	Timestamp float64 `json:"time"`
+	UID       string  `json:"uid"`
+	Type      string  `json:"type"`
+	Seq       int64   `json:"seq"`
+}
+
+type KrakenFuturesTradeSnapshot struct {
+	Feed   string `json:"feed"`
 	Trades []struct {
 		ProductID string  `json:"product_id"`
 		Price     float64 `json:"price"`
@@ -17,7 +30,44 @@ type KrakenFuturesTrade struct {
 		Side      string  `json:"side"`
 		Timestamp float64 `json:"time"`
 		UID       string  `json:"uid"`
+		Type      string  `json:"type"`
+		Seq       int64   `json:"seq"`
 	} `json:"trades"`
+}
+
+func processKrakenTrade(productID string, price, quantity float64, side string, timestamp float64, priceChan chan<- PriceData, tradeChan chan<- TradeData) {
+	// Convert symbol back to standard format (PI_XBTUSD -> BTCUSDT)
+	symbol := convertFromKrakenSymbol(productID)
+
+	// Normalize trade side (Kraken uses "buy" and "sell")
+	var normalizedSide string
+	if side == "buy" {
+		normalizedSide = "buy"
+	} else {
+		normalizedSide = "sell"
+	}
+
+	// Convert timestamp from float64 to int64 milliseconds
+	timestampMs := int64(timestamp * 1000)
+
+	priceData := PriceData{
+		Symbol:    symbol,
+		Exchange:  "kraken_futures",
+		Price:     price,
+		Timestamp: timestampMs,
+	}
+
+	tradeData := TradeData{
+		Symbol:    symbol,
+		Exchange:  "kraken_futures",
+		Price:     price,
+		Quantity:  strconv.FormatFloat(quantity, 'f', -1, 64),
+		Side:      normalizedSide,
+		Timestamp: timestampMs,
+	}
+
+	priceChan <- priceData
+	tradeChan <- tradeData
 }
 
 func ConnectKrakenFutures(symbols []string, priceChan chan<- PriceData, tradeChan chan<- TradeData) {
@@ -49,51 +99,46 @@ func ConnectKrakenFutures(symbols []string, priceChan chan<- PriceData, tradeCha
 				log.Printf("Kraken subscription error for %s: %v", krakenSymbol, err)
 				continue
 			}
+			log.Printf("Kraken subscribed to feed: trade, product_id: %s", krakenSymbol)
 		}
 
 		for {
-			var message KrakenFuturesTrade
-			err := conn.ReadJSON(&message)
+			var rawMessage map[string]interface{}
+			err := conn.ReadJSON(&rawMessage)
 			if err != nil {
 				log.Printf("Kraken read error: %v", err)
 				conn.Close()
 				break
 			}
 
-			if message.Feed == "trade" && len(message.Trades) > 0 {
-				for _, trade := range message.Trades {
-					// Convert symbol back to standard format (PI_XBTUSD -> BTCUSDT)
-					symbol := convertFromKrakenSymbol(trade.ProductID)
-
-					// Normalize trade side (Kraken uses "buy" and "sell")
-					var side string
-					if trade.Side == "buy" {
-						side = "buy"
-					} else {
-						side = "sell"
+			// Check if it's a trade_snapshot (array of trades) or individual trade
+			if feed, ok := rawMessage["feed"].(string); ok {
+				if feed == "trade_snapshot" {
+					// Handle trade snapshot (array of trades)
+					var snapshot KrakenFuturesTradeSnapshot
+					messageBytes, _ := json.Marshal(rawMessage)
+					err = json.Unmarshal(messageBytes, &snapshot)
+					if err != nil {
+						log.Printf("Kraken snapshot unmarshal error: %v", err)
+						continue
 					}
 
-					// Convert timestamp from float64 to int64 milliseconds
-					timestamp := int64(trade.Timestamp * 1000)
-
-					priceData := PriceData{
-						Symbol:    symbol,
-						Exchange:  "kraken_futures",
-						Price:     trade.Price,
-						Timestamp: timestamp,
+					log.Printf("Kraken processing trade snapshot with %d trades", len(snapshot.Trades))
+					for _, trade := range snapshot.Trades {
+						processKrakenTrade(trade.ProductID, trade.Price, trade.Quantity, trade.Side, trade.Timestamp, priceChan, tradeChan)
+					}
+				} else if feed == "trade" {
+					// Handle individual trade
+					var trade KrakenFuturesTrade
+					messageBytes, _ := json.Marshal(rawMessage)
+					err = json.Unmarshal(messageBytes, &trade)
+					if err != nil {
+						log.Printf("Kraken trade unmarshal error: %v", err)
+						continue
 					}
 
-					tradeData := TradeData{
-						Symbol:    symbol,
-						Exchange:  "kraken_futures",
-						Price:     trade.Price,
-						Quantity:  strconv.FormatFloat(trade.Quantity, 'f', -1, 64),
-						Side:      side,
-						Timestamp: timestamp,
-					}
-
-					priceChan <- priceData
-					tradeChan <- tradeData
+					log.Printf("Kraken processing individual trade: %s@%.2f", trade.ProductID, trade.Price)
+					processKrakenTrade(trade.ProductID, trade.Price, trade.Quantity, trade.Side, trade.Timestamp, priceChan, tradeChan)
 				}
 			}
 		}
