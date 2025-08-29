@@ -9,7 +9,7 @@ class FuturesArbitrageScanner {
         this.maxOpportunities = 25; // Reduced from 50
         this.connectedSources = new Set();
         this.currentSort = { field: 'timestamp', direction: 'desc' };
-        this.minProfitFilter = 0.05;
+        this.minProfitFilter = 0.10;
         
         // Source visibility settings with localStorage persistence
         this.enabledSources = this.loadEnabledSources();
@@ -268,7 +268,6 @@ class FuturesArbitrageScanner {
             this.chartSeries.set(config.key, series);
         });
 
-
         // Track user interactions to determine if we should auto-scroll
         this.chart.timeScale().subscribeVisibleTimeRangeChange(() => {
             this.lastUserScrollTime = Date.now();
@@ -285,7 +284,6 @@ class FuturesArbitrageScanner {
         this.updateChartTitle();
     }
 
-
     getChartWidth() {
         const chartContainer = document.getElementById('chart');
         return chartContainer ? Math.max(chartContainer.clientWidth - 40, 400) : 800;
@@ -299,51 +297,67 @@ class FuturesArbitrageScanner {
         return Math.max(containerHeight - 40, 300);
     }
 
-
     connectWebSocket() {
-        const wsStatus = document.getElementById('wsStatus');
-        const wsStatusText = document.getElementById('wsStatusText');
-        
-        wsStatus.className = 'status-dot disconnected';
-        wsStatusText.textContent = 'Connecting...';
+    const wsStatus = document.getElementById('wsStatus');
+    const wsStatusText = document.getElementById('wsStatusText');
+    
+    wsStatus.className = 'status-dot disconnected';
+    wsStatusText.textContent = 'Connecting...';
 
-        try {
-            this.ws = new WebSocket(`ws://${window.location.host}/ws`);
-            
-            this.ws.onopen = () => {
-                console.log('WebSocket connected');
-                wsStatus.className = 'status-dot connected';
-                wsStatusText.textContent = 'Connected';
-                this.reconnectAttempts = 0;
-            };
-
-            this.ws.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    this.queueMessage(data);
-                } catch (error) {
-                    console.error('Error parsing WebSocket message:', error);
-                }
-            };
-
-            this.ws.onclose = () => {
-                console.log('WebSocket disconnected');
-                wsStatus.className = 'status-dot disconnected';
-                wsStatusText.textContent = 'Disconnected';
-                this.scheduleReconnect();
-            };
-
-            this.ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                wsStatus.className = 'status-dot disconnected';
-                wsStatusText.textContent = 'Error';
-            };
-
-        } catch (error) {
-            console.error('Failed to create WebSocket connection:', error);
-            this.scheduleReconnect();
+    try {
+        // Get the correct WebSocket URL for Codespaces
+        let wsUrl;
+        if (window.location.hostname.includes('github.dev') || window.location.hostname.includes('githubpreview.dev')) {
+            // Codespaces environment
+            wsUrl = `wss://${window.location.host}/ws`;
+        } else if (window.location.protocol === 'https:') {
+            // HTTPS environment
+            wsUrl = `wss://${window.location.host}/ws`;
+        } else {
+            // Local development
+            wsUrl = `ws://${window.location.host}/ws`;
         }
+        
+        console.log('Connecting to WebSocket:', wsUrl);
+        console.log('Current location:', window.location.href);
+        
+        this.ws = new WebSocket(wsUrl);
+        
+        this.ws.onopen = () => {
+            console.log('WebSocket connected successfully!');
+            wsStatus.className = 'status-dot connected';
+            wsStatusText.textContent = 'Connected';
+            this.reconnectAttempts = 0;
+        };
+
+        this.ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('WebSocket message received:', data.type);
+                this.queueMessage(data);
+            } catch (error) {
+                console.error('Error parsing WebSocket message:', error);
+            }
+        };
+
+        this.ws.onclose = (event) => {
+            console.log('WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
+            wsStatus.className = 'status-dot disconnected';
+            wsStatusText.textContent = 'Disconnected';
+            this.scheduleReconnect();
+        };
+
+        this.ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            wsStatus.className = 'status-dot disconnected';
+            wsStatusText.textContent = 'Error';
+        };
+
+    } catch (error) {
+        console.error('Failed to create WebSocket connection:', error);
+        this.scheduleReconnect();
     }
+}
 
     scheduleReconnect() {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
@@ -914,10 +928,6 @@ class FuturesArbitrageScanner {
         const chartTitle = document.getElementById('chartTitle');
         chartTitle.textContent = `Price Chart - ${this.currentSymbol} (Live)`;
     }
-
-
-    
-
 }
 
 document.addEventListener('DOMContentLoaded', () => {
